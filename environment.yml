@@ -1,0 +1,11 @@
+name: rjax
+channels:
+- defaults
+- conda-forge
+dependencies:
+- python=3.8
+- pip>=20.0
+- conda>=4.7
+- patchelf>=0.10
+- pip:
+    - -r requirements.txt
