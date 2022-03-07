@@ -1,8 +1,8 @@
-# RL framework in JAX/Flax
+# RL framework in JAX (Flax)
 
 Offline RL framework in JAX that supports 
-- Distributed multi-device training
-- Multiprocessed dataloaders
+- Distributed multi-device training (GPU/TPU)
+- Multiprocessed dataloaders (similar to PyTorch)
 - Modular experiment management and logging
 
 Currently used by myself for research so features may change often.
