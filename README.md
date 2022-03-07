@@ -1,10 +1,9 @@
-# RL framework in JAX
+# RL framework in JAX/Flax
 
 Offline RL framework in JAX that supports 
-- Multi-device training
+- Distributed multi-device training
 - Multiprocessed dataloaders
-- Modular experiment handling
-- Extensive and modular logging
+- Modular experiment management and logging
 
 Currently used by myself for research so features may change often.
 
@@ -33,7 +32,7 @@ There are also two Dockerfiles provided for CPU and GPU.
 
 No official documentation page yet but the code is extensively documented and configs are explained.  
 
-### Example
+### Examples
 
 IQL: [implicit_q_learning](https://github.com/ikostrikov/implicit_q_learning).
 
