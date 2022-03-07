@@ -84,7 +84,7 @@ class Learner:
     def __call__(self, step: int) -> InfoDict:
         raise NotImplementedError
 
-    def save(self, log_dir: str):
+    def save(self, log_dir: str, step: int):
         raise NotImplementedError
 
     def load(self, log_dir: str):

@@ -1,5 +1,6 @@
 """Implementations of algorithms for continuous control."""
 
+import logging
 import os
 from dataclasses import dataclass
 from functools import partial
@@ -12,6 +13,7 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 from flax import struct
+from flax.training import checkpoints
 from simple_parsing import list_field
 
 import rjax.networks.policies as policies
@@ -176,3 +178,11 @@ class IQLLearner(Learner):
                                                  self.expectile,
                                                  self.temperature)
         return infos
+
+    def save(self, log_dir: str, step: int):
+        checkpoints.save_checkpoint(log_dir,
+                                    self.train_state,
+                                    step=step,
+                                    prefix="iql_checkpoint_",
+                                    keep=1,
+                                    overwrite=True)

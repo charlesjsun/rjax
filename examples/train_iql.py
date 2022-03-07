@@ -26,10 +26,11 @@ def main(config: Config):
     dataset = D4RLDataset(config.env, env)
     dataloader = RandomBatchDataloader(experiment.devices, dataset,
                                        config.dataloader)
-    experiment.register_cm(dataloader)
+    experiment.register_context(dataloader)
 
     learner = IQLLearner(experiment.devices, experiment.split_rng(), env,
                          dataloader, config.max_steps, config.train)
+    experiment.register_checkpoint(learner)
 
     eval_manager = EvalManager(experiment.split_rng(), learner, env,
                                config.eval)

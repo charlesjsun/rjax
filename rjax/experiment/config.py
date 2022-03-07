@@ -25,8 +25,9 @@ class BaseConfig(Serializable):
     tb: bool = True
     # saves git diff
     git: bool = True
-    # whether to checkpoint models or not
-    checkpoint: bool = True
+    # frequency of saving checkpoints, set to 0 to disable checkpoints,
+    # setting logging to False also disables checkpointing
+    checkpoint_freq: int = int(1e5)
 
     # random seed
     seed: int = 42

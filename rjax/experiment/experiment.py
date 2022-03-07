@@ -3,7 +3,7 @@ import logging
 import os
 import sys
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import jax
 import numpy as np
@@ -16,6 +16,15 @@ from rjax.experiment.utils import (create_log_dir_path, get_git_rev,
                                    save_git_diff)
 
 _CallbackType = Callable[[int], Optional[InfoDict]]
+
+
+@dataclass
+class _CheckpointCallback:
+    obj: Any
+    log_dir: str
+
+    def __call__(self, step: int):
+        self.obj.save(self.log_dir, step)
 
 
 @dataclass
@@ -35,7 +44,7 @@ class Experiment(contextlib.ExitStack):
         self.logging = config.logging
 
         # a list of context managers
-        self.cms: List[contextlib.AbstractContextManager] = []
+        self.contexts: List[contextlib.AbstractContextManager] = []
 
         # set random seeds for global seed objects
         np.random.seed(config.seed)
@@ -51,6 +60,7 @@ class Experiment(contextlib.ExitStack):
         root_logger.addHandler(console_handler)
         root_logger.setLevel(logging.INFO)
 
+        # setup various logging
         if self.logging:
             self.log_dir = create_log_dir_path(config)
             os.makedirs(self.log_dir, exist_ok=True)
@@ -71,7 +81,7 @@ class Experiment(contextlib.ExitStack):
             # Save git diff
             if config.git:
                 try:
-                    commit = get_git_rev()
+                    commit = get_git_rev().replace(" ", "-")
                     save_git_diff(
                         os.path.join(self.log_dir, f"diff-{commit}.txt"))
                 except Exception:
@@ -80,10 +90,14 @@ class Experiment(contextlib.ExitStack):
             # setup tensorboard
             if config.tb:
                 self.tb_logger = TensorboardLogger(self.log_dir)
-                self.register_cm(self.tb_logger)
+                self.register_context(self.tb_logger)
+
+        # checkpointing
+        self.checkpoint_freq = self.config.checkpoint_freq
+        self.checkpointing = self.logging and self.checkpoint_freq > 0
 
         # a list of callback states
-        self.cbs: List[_CallbackState] = []
+        self.callback_states: List[_CallbackState] = []
 
         # setup experiment
         self.max_steps = self.config.max_steps
@@ -139,13 +153,13 @@ class Experiment(contextlib.ExitStack):
             log_freq=log_freq,
             log_step=1,
         )
-        self.cbs.append(state)
+        self.callback_states.append(state)
 
     def clear_callbacks(self):
         """ Remove all step callbacks. Useful for multi-stage experiments that requires multiple
             start() runs with different functions.
         """
-        self.cbs = []
+        self.callback_states = []
 
     def start_loop(self, steps: Optional[int] = None):
         """ Run the experiment with the current callbacks for steps amount of steps.
@@ -162,7 +176,7 @@ class Experiment(contextlib.ExitStack):
 
     def trigger_callbacks(self):
         """ Triggers all scheduled callbacks. """
-        for state in self.cbs:
+        for state in self.callback_states:
             if (self.step + 1) % state.freq == 0:
                 infos = state.callback(self.step)
                 if (self.step + 1) % state.log_freq == 0:
@@ -170,13 +184,22 @@ class Experiment(contextlib.ExitStack):
                         self.log(infos)
                     state.log_step += 1
 
-    def register_cm(self, cm: contextlib.AbstractContextManager):
-        """ Registers a context manager to be entered when this enters a with clause """
-        self.cms.append(cm)
+    def register_checkpoint(self, obj: Any):
+        """ Register an object that has a save method to checkpoint. """
+        assert hasattr(obj, "save"), (
+            "checkpoint object must have a save(log_dir: str, step: int) method"
+        )
+        if self.checkpointing:
+            self.register_callback(_CheckpointCallback(obj, self.log_dir),
+                                   self.checkpoint_freq)
 
-    def clear_cms(self):
+    def register_context(self, cm: contextlib.AbstractContextManager):
+        """ Registers a context manager to be entered when this enters a with clause """
+        self.contexts.append(cm)
+
+    def clear_contexts(self):
         """ Clear all registered context managers. """
-        self.cms.clear()
+        self.contexts.clear()
 
     def __enter__(self):
         """ Intentionally left blank. Always call enter_registered_context or enter_context
@@ -187,12 +210,12 @@ class Experiment(contextlib.ExitStack):
 
     def enter_registered_contexts(self):
         """ Call to enter all registered cm after this has already entered a with clause """
-        for cm in self.cms:
+        for cm in self.contexts:
             super().enter_context(cm)
 
     def enter_context(self, cm: contextlib.AbstractContextManager):
         """ Call to register and enter cm after this has already entered a with clause """
-        self.cms.append(cm)
+        self.contexts.append(cm)
         super().enter_context(cm)
 
     def __exit__(self, *args, **kwargs):
